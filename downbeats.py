@@ -23,90 +23,6 @@ print(len(beats))
 beatInterval = int(len(beats) / NUM_IMAGES)
 print('beatInterval', beatInterval)
 
-# filteredBeats = [beats[i*beatInterval] for i in range(0, NUM_IMAGES+1)]
-# print(filteredBeats)
-
-format = 'MP4V'
-
-from cv2 import VideoWriter, VideoWriter_fourcc, imread, resize
-fourcc = VideoWriter_fourcc(*format)
-vid = None
-
-import soundfile as sf
-f = sf.SoundFile(sys.argv[1])
-print('samples = {}'.format(len(f)))
-print('sample rate = {}'.format(f.samplerate))
-print('seconds = {}'.format(len(f) / f.samplerate))
-WAV_LENGTH = len(f) / f.samplerate
-
-FPS = 30
-
-image1 = imread(images[0])
-size = image1.shape[1], image1.shape[0]
-vid = VideoWriter('out.mp4', fourcc, float(FPS), size, True)
-
-FIRST_BEAT = beats[0]
-currentImage = resize(imread('black.png'), size)
-for f in range(0, FIRST_BEAT):
-  print(f)
-  vid.write(currentImage)
-
-BEATS_PER_SECOND = (tempo/60)
-BEATS_PER_FRAME = BEATS_PER_SECOND / FPS
-
-from pydub import AudioSegment
-song = AudioSegment.from_wav(sys.argv[1])
-SECONDS_NEEDED = ((FIRST_BEAT/FPS) + (BEATS_PER_SECOND*NUM_IMAGES)) + 2
-print(f'only need {SECONDS_NEEDED} of {WAV_LENGTH}')
-song = song[:(SECONDS_NEEDED*1000)].fade_out(500)
-song.export("short.mp3", format="mp3")
-
-lastBeat = -1
-for frame in range(FIRST_BEAT, int(SECONDS_NEEDED*FPS)):
-  t = frame / FPS
-  beat = int(t / BEATS_PER_SECOND)
-  print(f'frame {frame}, time {t}, beat {beat}, lastBeat {lastBeat}')
-  if beat != lastBeat:
-    lastBeat = beat
-    if (beat < len(images)):
-      print('switching to', images[beat])
-      currentImage = resize(imread(images[beat]), size)
-  vid.write(currentImage)
-
-
-# IMAGE_FRAME_COUNT = FRAMES / NUM_IMAGES
-# BEATS_PER_IMAGE = int(BEATS_PER_FRAME * IMAGE_FRAME_COUNT)
-# print('beats per second', BEATS_PER_SECOND)
-# print('beats per frame', BEATS_PER_FRAME)
-# print('image onscreen for N frames', IMAGE_FRAME_COUNT)
-# print('beats per image', BEATS_PER_IMAGE)
-
-# for i in range(0, NUM_IMAGES):
-#   print("reading image, ", images[i])
-#   currentImage = resize(imread(images[i]), size)
-#   for j in range(0, BEATS_PER_IMAGE):
-#     vid.write(currentImage)
-
-
-# nextIndex = 1
-# for f in range(0, FRAMES):
-#   if f < filteredBeats[nextIndex]:
-#     vid.write(currentImage)
-#   else:
-#     print(nextIndex-1)
-#     print('switching to ', images[nextIndex-1])
-#     currentImage = resize(imread(images[nextIndex-1]), size)
-#     nextIndex += 1
-#     vid.write(currentImage)
-
-
-#     if size[0] != img.shape[1] and size[1] != img.shape[0]:
-#         img = resize(img, size)
-#     vid.write(img)
-# vid.release()
-#   return vi
-
-
 def find_downbeats():
   # we assume 4/4 time
   meter = 4
@@ -131,3 +47,120 @@ def find_downbeats():
   # print times
   downbeat_times = librosa.frames_to_time(downbeat_frames, sr=sr)
   print('Downbeat times in s: {}'.format(downbeat_times))
+  return downbeat_times
+
+format = 'MP4V'
+
+from cv2 import VideoWriter, VideoWriter_fourcc, imread, resize
+fourcc = VideoWriter_fourcc(*format)
+vid = None
+
+import soundfile as sf
+f = sf.SoundFile(sys.argv[1])
+print('samples = {}'.format(len(f)))
+print('sample rate = {}'.format(f.samplerate))
+print('seconds = {}'.format(len(f) / f.samplerate))
+WAV_LENGTH = len(f) / f.samplerate
+
+FPS = 30
+
+image1 = imread(images[0])
+size = image1.shape[1], image1.shape[0]
+vid = VideoWriter('out.mp4', fourcc, float(FPS), size, True)
+
+FIRST_BEAT = beats[0]
+
+BEATS_PER_SECOND = (tempo/60)
+BEATS_PER_FRAME = BEATS_PER_SECOND / FPS
+
+## good one
+# from pydub import AudioSegment
+# song = AudioSegment.from_wav(sys.argv[1])
+# SECONDS_NEEDED = ((FIRST_BEAT/FPS) + (BEATS_PER_SECOND*NUM_IMAGES)) + 2
+# print(f'only need {SECONDS_NEEDED} of {WAV_LENGTH}')
+# song = song[:(SECONDS_NEEDED*1000)].fade_out(500)
+# song.export("short.mp3", format="mp3")
+
+# FRAMES = int(SECONDS_NEEDED*FPS)
+# currentImage = resize(imread('black.png'), size)
+# for f in range(0, FIRST_BEAT):
+#   print(f)
+#   vid.write(currentImage)
+# lastBeat = -1
+# for frame in range(FIRST_BEAT, int(SECONDS_NEEDED*FPS)):
+#   t = frame / FPS
+#   beat = int(t / BEATS_PER_SECOND)
+#   print(f'frame {frame}, time {t}, beat {beat}, lastBeat {lastBeat}')
+#   if beat != lastBeat:
+#     lastBeat = beat
+#     if (beat < len(images)):
+#       print('switching to', images[beat])
+#       currentImage = resize(imread(images[beat]), size)
+#   vid.write(currentImage)
+
+
+## with downbeats 
+
+from pydub import AudioSegment
+song = AudioSegment.from_wav(sys.argv[1])
+
+downbeats = [0,] + find_downbeats()
+print('downbeats:', downbeats)
+
+SECONDS_NEEDED = WAV_LENGTH
+if len(downbeats) < 13:
+  new_downbeats = []
+  for i in range(0, len(downbeats) -1 ):
+    new_downbeats.append(downbeats[i])
+    new_downbeats.append(downbeats[i] + ((downbeats[i+1]-downbeats[i])/2))
+  print('new downbeats: ', new_downbeats)
+  downbeats = new_downbeats
+
+if len(downbeats) > 14:
+  SECONDS_NEEDED = downbeats[14] + 0.5
+print(f'only need {SECONDS_NEEDED} of {WAV_LENGTH}')
+song = song[:(SECONDS_NEEDED*1000)].fade_out(500)
+song.export("short.mp3", format="mp3")
+
+lastTime = 0
+for (index,beatTime) in enumerate(downbeats[:14]):
+  if index >= NUM_IMAGES:
+    index = NUM_IMAGES
+  if index == 0:
+    imageFile = 'black'
+    currentImage = resize(imread('black.png'), size)
+  else:
+    imageFile = images[index - 1]
+    currentImage = resize(imread(imageFile), size)
+  print("reading image, ", imageFile)
+  startFrame = int(lastTime * FPS)
+  endFrame = int(beatTime * FPS)
+  lastTime = beatTime
+  for frame in range(startFrame, endFrame):
+    # print(f'Frame {frame} = {imageFile}')
+    vid.write(currentImage)
+
+
+
+
+# filteredBeats = [beats[i*beatInterval] for i in range(0, NUM_IMAGES+1)]
+# print(filteredBeats)
+# nextIndex = 1
+# for f in range(0, FRAMES):
+#   if f < filteredBeats[nextIndex]:
+#     vid.write(currentImage)
+#   else:
+#     print(nextIndex-1)
+#     print('switching to ', images[nextIndex-1])
+#     currentImage = resize(imread(images[nextIndex-1]), size)
+#     nextIndex += 1
+#     vid.write(currentImage)
+
+
+#     if size[0] != img.shape[1] and size[1] != img.shape[0]:
+#         img = resize(img, size)
+#     vid.write(img)
+# vid.release()
+#   return vi
+
+

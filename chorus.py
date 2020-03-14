@@ -7,4 +7,4 @@ print('done')
 
 print(sys.argv)
 
-chorus_start_sec = find_and_output_chorus(sys.argv[1], 'out.wav', 10)
+chorus_start_sec = find_and_output_chorus(sys.argv[1], 'out.wav', 22)
